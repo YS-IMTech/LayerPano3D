@@ -16,7 +16,7 @@
 [Ziwei Liu](https://liuziwei7.github.io/), 
 [Dahua Lin✉️](http://dahua.me/)
 
-<p style="font-size: 0.6em; margin-top: -1em">*Equal Contribution,  ✉️Corresponding author.</p>
+<p style="font-size: 0.6em; margin-top: -1em">*Equal Contribution,   ✉️Corresponding author</p>
 
 
 
