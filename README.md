@@ -1,7 +1,7 @@
 # LayerPano3D: Layered 3D Panorama for Hyper-Immersive Scene Generation
 
 
-[**Project page**](https://ys-imtech.github.io/projects/LayerPano3D/) | [**Paper**](https://arxiv.org/abs/2312.04543)
+[**Project page**](https://ys-imtech.github.io/projects/LayerPano3D/) | [**Paper**](https://arxiv.org/abs/2408.13252)
 
 
 
@@ -21,7 +21,7 @@
 
 
 <p align="center">
-<a href="https://arxiv.org/abs/2312.04543"><img src="https://img.shields.io/badge/arXiv-Paper-<color>"></a>
+<a href="https://arxiv.org/abs/2408.13252"><img src="https://img.shields.io/badge/arXiv-Paper-<color>"></a>
 <a href="https://ys-imtech.github.io/projects/LayerPano3D/"><img src="https://img.shields.io/badge/Project-Website-red"></a>
 <a href="https://www.youtube.com/watch?v=dXvoFRbHOiw"><img src="https://img.shields.io/static/v1?label=Demo&message=Video&color=orange"></a>
 <a href="" target='_blank'>
