@@ -1,7 +1,7 @@
 # LayerPano3D: Layered 3D Panorama for Hyper-Immersive Scene Generation
 
 
-[**Project page**](https://ys-imtech.github.io/projects/LayerPano3D/) | [**Paper**](https://arxiv.org/abs/2408.13252)
+[**Project page**](https://ys-imtech.github.io/projects/LayerPano3D/) | [**Paper**](https://arxiv.org/abs/2408.13252) | [**Video**](https://youtu.be/dXvoFRbHOiw?si=SLNJM7JoBRcsoUg0)
 
 
 
