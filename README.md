@@ -44,12 +44,12 @@
 If you find our work helpful for your research, please consider giving a star ⭐ and citation 📝
 
 ```bibtex
-        @article{yang2024layerpano3d,
-          title={LayerPano3D: Layered 3D Panorama for Hyper-Immersive Scene Generation},
-          author={Yang, Shuai and Tan, Jing and Zhang, Mengchen and Wu, Tong and Li, Yixuan and Wetzstein, Gordon and Liu, Ziwei and Lin, Dahua},
-          journal={arXiv preprint arXiv:2408.13252},
-          year={2024}
-        }
+@article{yang2024layerpano3d,
+  title={LayerPano3D: Layered 3D Panorama for Hyper-Immersive Scene Generation},
+  author={Yang, Shuai and Tan, Jing and Zhang, Mengchen and Wu, Tong and Li, Yixuan and Wetzstein, Gordon and Liu, Ziwei and Lin, Dahua},
+  journal={arXiv preprint arXiv:2408.13252},
+  year={2024}
+}
 ```
 
 
