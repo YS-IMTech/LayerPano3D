@@ -40,19 +40,17 @@
 ## 👨‍💻 Todo
 - [ ] Release Code (Coming soon !!! )
 
-
-<!-- ## ✒️ Citation
+## ✒️ Citation
 If you find our work helpful for your research, please consider giving a star ⭐ and citation 📝
 
 ```bibtex
-    @misc{yang2024layerpano3dlayered3dpanorama,
-          title={LayerPano3D: Layered 3D Panorama for Hyper-Immersive Scene Generation}, 
-          author={Shuai Yang and Jing Tan and Mengchen Zhang and Tong Wu and Yixuan Li and Gordon Wetzstein and Ziwei Liu and Dahua Lin},
-          year={2024},
-          eprint={2408.13252},
-          archivePrefix={arXiv},
-          primaryClass={cs.CV},
-          url={https://arxiv.org/abs/2408.13252}, 
-    }
-}
-``` -->
+        @article{yang2024layerpano3d,
+          title={LayerPano3D: Layered 3D Panorama for Hyper-Immersive Scene Generation},
+          author={Yang, Shuai and Tan, Jing and Zhang, Mengchen and Wu, Tong and Li, Yixuan and Wetzstein, Gordon and Liu, Ziwei and Lin, Dahua},
+          journal={arXiv preprint arXiv:2408.13252},
+          year={2024}
+        }
+```
+
+
+
