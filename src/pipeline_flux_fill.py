@@ -23,7 +23,7 @@ from diffusers.image_processor  import VaeImageProcessor
 from diffusers.loaders import FluxLoraLoaderMixin, FromSingleFileMixin, TextualInversionLoaderMixin
 from diffusers.models.autoencoders import AutoencoderKL
 from diffusers.models.transformers import FluxTransformer2DModel
-from diffusers.schedulers import FlowMatchEulerDiscreteScheduler
+from .scheduling_flow_match_euler_discrete import FlowMatchEulerDiscreteScheduler
 from diffusers.utils import (
     USE_PEFT_BACKEND,
     is_torch_xla_available,
@@ -46,6 +46,26 @@ else:
 
 
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
+
+
+def get_device_with_fallback() -> torch.device:
+    """
+    Return the best available device: MPS on macOS if available, otherwise CPU.
+    """
+    # On macOS without CUDA, use MPS if available, otherwise CPU.
+    if not torch.cuda.is_available():
+        if torch.backends.mps.is_available():
+            try:
+                # Validate MPS runtime with a small tensor allocation.
+                test_tensor = torch.zeros(1, device="mps")
+                return torch.device("mps")
+            except Exception as e:
+                logger.warning(f"MPS is not available: {e}. Falling back to CPU.")
+                return torch.device("cpu")
+        return torch.device("cpu")
+    
+    # Use CUDA when available.
+    return torch.device("cuda")
 
 EXAMPLE_DOC_STRING = """
     Examples:
@@ -122,6 +142,12 @@ def retrieve_timesteps(
         `Tuple[torch.Tensor, int]`: A tuple where the first element is the timestep schedule from the scheduler and the
         second element is the number of inference steps.
     """
+    # Device fallback: if device is 'cuda' or torch.device('cuda') but CUDA not available, use 'cpu'
+    if device is not None:
+        device_str = str(device)
+        if 'cuda' in device_str and not torch.cuda.is_available():
+            device = 'cpu'
+    
     if timesteps is not None and sigmas is not None:
         raise ValueError("Only one of `timesteps` or `sigmas` can be passed. Please choose one to set custom values")
     if timesteps is not None:
@@ -276,7 +302,18 @@ class FluxFillPipeline(
                 f" {max_sequence_length} tokens: {removed_text}"
             )
 
-        prompt_embeds = self.text_encoder_2(text_input_ids.to(device), output_hidden_states=False)[0]
+        try:
+            prompt_embeds = self.text_encoder_2(text_input_ids.to(device), output_hidden_states=False)[0]
+        except (AssertionError, RuntimeError) as e:
+            if "CUDA" in str(e) or "Placeholder storage" in str(e) or "MPS" in str(e):
+                logger.warning(f"Device error in text_encoder_2, fallback to CPU: {e}")
+                device = torch.device("cpu")
+                # Move encoder to CPU
+                if hasattr(self, 'text_encoder_2') and self.text_encoder_2 is not None:
+                    self.text_encoder_2 = self.text_encoder_2.to(device)
+                prompt_embeds = self.text_encoder_2(text_input_ids.to(device), output_hidden_states=False)[0]
+            else:
+                raise
 
         dtype = self.text_encoder_2.dtype
         prompt_embeds = prompt_embeds.to(dtype=dtype, device=device)
@@ -322,7 +359,18 @@ class FluxFillPipeline(
                 "The following part of your input was truncated because CLIP can only handle sequences up to"
                 f" {self.tokenizer_max_length} tokens: {removed_text}"
             )
-        prompt_embeds = self.text_encoder(text_input_ids.to(device), output_hidden_states=False)
+        try:
+            prompt_embeds = self.text_encoder(text_input_ids.to(device), output_hidden_states=False)
+        except (AssertionError, RuntimeError) as e:
+            if "CUDA" in str(e) or "Placeholder storage" in str(e) or "MPS" in str(e):
+                logger.warning(f"Device error in text_encoder, fallback to CPU: {e}")
+                device = torch.device("cpu")
+                # Move encoder to CPU
+                if hasattr(self, 'text_encoder') and self.text_encoder is not None:
+                    self.text_encoder = self.text_encoder.to(device)
+                prompt_embeds = self.text_encoder(text_input_ids.to(device), output_hidden_states=False)
+            else:
+                raise
 
         # Use pooled output of CLIPTextModel
         prompt_embeds = prompt_embeds.pooler_output
@@ -451,6 +499,45 @@ class FluxFillPipeline(
                 A lora scale that will be applied to all LoRA layers of the text encoder if LoRA layers are loaded.
         """
         device = device or self._execution_device
+        
+        # Validate device - avoid CUDA errors on macOS
+        if str(device) == "cuda" and not torch.cuda.is_available():
+            logger.warning("CUDA requested but not available, falling back to CPU")
+            device = torch.device("cpu")
+        elif str(device) not in ["cpu", "mps", "cuda"] and not str(device).startswith("mps"):
+            logger.warning(f"Device {device} not recognized, falling back to CPU")
+            device = torch.device("cpu")
+        
+        # Handle indexed device names like "mps:0" -> use base device
+        device_str = str(device)
+        if ":" in device_str:
+            base_device = device_str.split(":")[0]
+            if base_device == "mps":
+                device = torch.device("mps")
+            elif base_device == "cuda":
+                if not torch.cuda.is_available():
+                    device = torch.device("cpu")
+                else:
+                    device = torch.device("cuda")
+            else:
+                device = torch.device("cpu")
+        
+        # Move text encoders to the correct device
+        if self.text_encoder is not None:
+            try:
+                self.text_encoder = self.text_encoder.to(device)
+            except Exception as e:
+                logger.warning(f"Failed to move text_encoder to {device}: {e}, using CPU")
+                self.text_encoder = self.text_encoder.to("cpu")
+                device = torch.device("cpu")
+        
+        if self.text_encoder_2 is not None:
+            try:
+                self.text_encoder_2 = self.text_encoder_2.to(device)
+            except Exception as e:
+                logger.warning(f"Failed to move text_encoder_2 to {device}: {e}, using CPU")
+                self.text_encoder_2 = self.text_encoder_2.to("cpu")
+                device = torch.device("cpu")
 
         # set lora scale so that monkey patched LoRA
         # function of text encoder can correctly access it
@@ -731,7 +818,7 @@ class FluxFillPipeline(
         callback_on_step_end: Optional[Callable[[int, int, Dict], None]] = None,
         callback_on_step_end_tensor_inputs: List[str] = ["latents"],
         max_sequence_length: int = 512,
-    ):
+    ) -> "FluxPipelineOutput":
         r"""
         Function invoked when calling the pipeline for generation.
 
@@ -851,6 +938,28 @@ class FluxFillPipeline(
             batch_size = prompt_embeds.shape[0]
 
         device = self._execution_device
+        # Fallback to CPU if MPS is unstable or CUDA is unavailable.
+        try:
+            device_str = str(device)
+            # Handle indexed devices like "mps:0"
+            if ":" in device_str:
+                base_device = device_str.split(":")[0]
+                test_device = base_device
+            else:
+                test_device = device_str
+            
+            if test_device == "mps":
+                test_tensor = torch.zeros(1, device="mps")
+            elif test_device == "cuda" and not torch.cuda.is_available():
+                raise AssertionError("CUDA not available")
+        except Exception as e:
+            logger.warning(f"Device {device} not working: {e}. Fallback to CPU")
+            device = torch.device("cpu")
+        
+        # Validate that the selected device is supported.
+        if str(device) not in ["cpu", "mps", "cuda"] and not str(device).startswith("mps:") and not str(device).startswith("cuda:"):
+            logger.warning(f"Device {device} is not supported, falling back to CPU")
+            device = torch.device("cpu")
 
 
         # 6. Prepare timesteps
@@ -975,8 +1084,15 @@ class FluxFillPipeline(
                 latents = self.scheduler.step(noise_pred, t, latents, return_dict=False)[0]
 
                 if latents.dtype != latents_dtype:
-                    if torch.backends.mps.is_available():
+                    if str(device) == "mps":
                         # some platforms (eg. apple mps) misbehave due to a pytorch bug: https://github.com/pytorch/pytorch/pull/99272
+                        try:
+                            latents = latents.to(latents_dtype)
+                        except Exception as e:
+                            logger.warning(f"MPS dtype conversion failed: {e}. Falling back to CPU.")
+                            latents = latents.cpu().to(latents_dtype)
+                            device = torch.device("cpu")
+                    else:
                         latents = latents.to(latents_dtype)
 
                 if callback_on_step_end is not None:

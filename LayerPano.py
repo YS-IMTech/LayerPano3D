@@ -35,6 +35,12 @@ from utils.paint_utils import functbl
 from utils.trajectory import get_pcdGenPoses
 from scene.cameras import MiniCam2
 
+try:
+    from mps_splat_backend import train_with_splat_apple
+    HAS_SPLAT_APPLE_BACKEND = True
+except Exception:
+    HAS_SPLAT_APPLE_BACKEND = False
+
 
 try:
     from torch.utils.tensorboard import SummaryWriter
@@ -68,17 +74,28 @@ def check_cuda_memo(info="", device=0):
 
 
 class LayerPano:
-    def __init__(self, save_dir=None): 
+    def __init__(self, save_dir=None, backend="legacy", mps_rasterizer="cpp", quality="standard"):
         self.init_logger()
         self.save_dir = save_dir
         self.opt = GSParams()
         self.cam = CameraParams()
         self.hyper = ModelHiddenParams()
-        self.device = 'cuda'
+        self.backend = backend
+        self.mps_rasterizer = mps_rasterizer
+        self.quality = quality
+        
+        # Device selection: CUDA > MPS > CPU
+        if torch.cuda.is_available():
+            self.device = 'cuda'
+        elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+            self.device = 'mps'
+        else:
+            self.device = 'cpu'
+        
         self.timestamp = datetime.datetime.now().strftime('%y%m%d_%H%M%S')
         
         bg_color = [1, 1, 1]  #[0, 0, 0]
-        self.background = torch.tensor(bg_color, dtype=torch.float32, device='cuda')
+        self.background = torch.tensor(bg_color, dtype=torch.float32, device=self.device)
         self.step=0
         self.is_upper_mask_aggressive = True
         
@@ -124,14 +141,39 @@ class LayerPano:
         print('Layers of Pano:', n_layer)
         self.outlier_thresh = outlier_thresh
         print('Outlier Thresh', self.outlier_thresh)
+
+        quality_iteration_scale = {
+            "standard": 1.0,
+            "high": 1.5,
+            "ultra": 2.0,
+        }
+        iter_scale = quality_iteration_scale.get(self.quality, 1.0)
         
         gaussians_prev = None
         for layer_idx in range(n_layer):
             self.traindata = self.load_pcd_and_perspectives(input_dir, layer_idx)
             if layer_idx == 0:
-                n_iterations = 3001
+                n_iterations = int(3001 * iter_scale)
             else:
-                n_iterations = 2001
+                n_iterations = int(2001 * iter_scale)
+
+            if self.backend == "splat-apple":
+                if not HAS_SPLAT_APPLE_BACKEND:
+                    raise RuntimeError(
+                        "splat-apple backend is not available. Install splat-apple dependencies (torch_gs)."
+                    )
+                outfile = self.save_ply(
+                    os.path.join(self.save_dir, f'gsplat_layer{layer_idx}.ply'),
+                    type='mps-splat-apple'
+                )
+                train_with_splat_apple(
+                    self.traindata,
+                    outfile,
+                    num_iterations=n_iterations,
+                    rasterizer=self.mps_rasterizer,
+                    device=self.device,
+                )
+                continue
 
             self.gaussians = LayerGaussian(self.opt.sh_degree, outlier_thresh=self.outlier_thresh)
             self.scene = Scene(self.traindata, gaussians_prev, self.gaussians, self.opt)        
@@ -153,6 +195,9 @@ class LayerPano:
             
         if type == '3D':
             self.gaussians.save_ply(fpath)
+        elif type == 'mps-splat-apple':
+            # The external backend writes the output directly in LayerPano-compatible PLY.
+            pass
         else:
             if not os.path.exists(fpath):
                 self.gaussians_4d.save_ply(fpath)

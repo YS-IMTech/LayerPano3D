@@ -1,0 +1,34 @@
+# macOS
+.DS_Store
+
+# Python cache/build
+__pycache__/
+*.py[cod]
+*.so
+*.dylib
+*.egg-info/
+*.egg
+build/
+dist/
+
+# Logs and runtime artifacts
+*.log
+*.pid
+logs/
+
+# Generated outputs
+outputs/
+outputs_real/
+outputs_magical_academy/
+results/
+
+# Local model weights (keep placeholders and docs)
+checkpoints/*
+!checkpoints/**/
+!checkpoints/**/*.txt
+!checkpoints/**/*.md
+!checkpoints/**/*.gitattributes
+
+# Notebook and editor noise
+.ipynb_checkpoints/
+.vscode/

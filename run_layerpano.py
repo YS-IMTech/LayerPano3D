@@ -22,6 +22,10 @@ if __name__ == "__main__":
     parser.add_argument('--save_dir',  type=str, default='outputs', help='Save directory')
     parser.add_argument('--input_dir', type=str, default='outputs')
     parser.add_argument('--outlier_thresh', type=int, default=4, help='get outlier mask threshold')
+    parser.add_argument('--mps_rasterizer', type=str, default='cpp', choices=['python', 'cpp'],
+                        help='Rasterizer mode for the splat-apple backend')
+    parser.add_argument('--quality', type=str, default='standard', choices=['standard', 'high', 'ultra'],
+                        help='Quality preset for training iterations')
     args = parser.parse_args()
     
     save_dir = f"{args.save_dir}/scene"
@@ -34,5 +38,5 @@ if __name__ == "__main__":
     logger.info("[INFO] START TRAINING")
     
 
-    layerpano = LayerPano(save_dir=save_dir)
+    layerpano = LayerPano(save_dir=save_dir, backend='splat-apple', mps_rasterizer=args.mps_rasterizer, quality=args.quality)
     layerpano.create(args.input_dir, outlier_thresh=args.outlier_thresh)
