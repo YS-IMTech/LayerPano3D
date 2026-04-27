@@ -12,7 +12,19 @@
 from typing import NamedTuple
 import torch.nn as nn
 import torch
-from . import _C
+import platform
+
+# Try to import the C++ extension, with fallback on macOS/CPU.
+try:
+    from . import _C
+    HAS_CUDA_EXTENSION = True
+except (ImportError, ModuleNotFoundError):
+    HAS_CUDA_EXTENSION = False
+    if platform.system() == "Darwin":
+        print("[warning] diff_gaussian_rasterization on macOS without CUDA extension")
+        print("          inference will run in CPU-only mode")
+    else:
+        print("[warning] CUDA extension is not available")
 
 def cpu_deep_copy_tuple(input_tuple):
     copied_tensors = [item.cpu().clone() if isinstance(item, torch.Tensor) else item for item in input_tuple]
